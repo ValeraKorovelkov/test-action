@@ -32765,7 +32765,7 @@ async function run() {
         const releaseBody = github.context.payload.release.body;
         const releaseTag = github.context.payload.release.tag_name;
         const releaseWebhookUrl = core.getInput('release-webhook-url');
-        const issueWebhookUrl = core.getInput('issue-webhook-url');
+        const issuesWebhookUrl = core.getInput('issues-webhook-url');
         const projectName = core.getInput('project-name');
         const issueTag = core.getInput('issue-tag');
         const versionName = `${projectName}-${releaseTag}`;
@@ -32778,10 +32778,12 @@ async function run() {
             versionDescription: releaseBody
         });
         console.log('Updating issues...');
-        await axios_1.default.post(issueWebhookUrl, { versionName, issues });
+        await axios_1.default.post(issuesWebhookUrl, { versionName, issues });
         console.log('Action complete.');
     }
     catch (error) {
+        if (core.isDebug())
+            console.log(error);
         // Fail the workflow run if an error occurs
         if (error instanceof Error)
             core.setFailed(error.message);
