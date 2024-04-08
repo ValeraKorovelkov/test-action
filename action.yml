@@ -1,4 +1,4 @@
-name: 'Jira release'
+name: 'Testing action for project'
 description: ' Create Release and Update Issues fix version in Jira'
 author: 'Valera Korovelkov'
 
