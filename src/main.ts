@@ -1,5 +1,7 @@
 import * as core from '@actions/core'
-import { wait } from './wait'
+import * as github from '@actions/github'
+import axios from 'axios'
+import { findIssues } from './findIssues'
 
 /**
  * The main function for the action.
@@ -7,18 +9,38 @@ import { wait } from './wait'
  */
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
+    console.log('Running action...')
+    const isReleaseEvent: boolean = github.context.eventName === 'release'
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    if (!isReleaseEvent) {
+      core.setFailed('This action can only be run on release events.')
+      return
+    }
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    console.log('Processing inputs...')
+    const releaseBody: string = github.context.payload.release.body
+    const releaseTag: string = github.context.payload.release.tag_name
+    const releaseWebhookUrl: string = core.getInput('release-webhook-url')
+    const issueWebhookUrl: string = core.getInput('issue-webhook-url')
+    const projectName: string = core.getInput('project-name')
+    const issueTag: string = core.getInput('issue-tag')
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    const versionName = `${projectName}-${releaseTag}`
+    console.log(`Version name: ${versionName}`)
+
+    const issues = findIssues(releaseBody, issueTag)
+    console.log(`Issues: ${issues}`)
+
+    console.log('Creating a fix version...')
+    await axios.post(releaseWebhookUrl, {
+      versionName,
+      versionDescription: releaseBody
+    })
+
+    console.log('Updating issues...')
+    await axios.post(issueWebhookUrl, { versionName, issues })
+
+    console.log('Action complete.')
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)

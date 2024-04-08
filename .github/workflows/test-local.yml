@@ -1,0 +1,24 @@
+name: Test local action
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  test-action:
+    name: GitHub Actions Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Run local action
+        id: test-action
+        uses: ./
+        with:
+          release-webhook-url: ${{ secrets.RELEASE_WEBHOOK_URL }}
+          issues-webhook-url: ${{ secrets.ISSUES_WEBHOOK_URL }}
+          project-name: 'merchant-dashboard-frontend'
+          issue-tag: 'TR'
