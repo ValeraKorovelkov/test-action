@@ -1,46 +1,67 @@
 /**
  * Unit tests for the action's main functionality, src/main.ts
  *
- * These should be run as if the action was called from a workflow.
- * Specifically, the inputs listed in `action.yml` should be set as environment
- * variables following the pattern `INPUT_<INPUT_NAME>`.
  */
 
 import * as core from '@actions/core'
+import * as github from '@actions/github'
+import axios from 'axios'
 import * as main from '../src/main'
 
 // Mock the action's main function
 const runMock = jest.spyOn(main, 'run')
 
-// Other utilities
-const timeRegex = /^\d{2}:\d{2}:\d{2}/
-
 // Mock the GitHub Actions core library
-let debugMock: jest.SpiedFunction<typeof core.debug>
 let errorMock: jest.SpiedFunction<typeof core.error>
 let getInputMock: jest.SpiedFunction<typeof core.getInput>
 let setFailedMock: jest.SpiedFunction<typeof core.setFailed>
-let setOutputMock: jest.SpiedFunction<typeof core.setOutput>
+let axiosPostMock: jest.SpiedFunction<typeof axios.post>
+
+const originalContext = { ...github.context }
 
 describe('action', () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
-    debugMock = jest.spyOn(core, 'debug').mockImplementation()
     errorMock = jest.spyOn(core, 'error').mockImplementation()
     getInputMock = jest.spyOn(core, 'getInput').mockImplementation()
     setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation()
-    setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation()
+    axiosPostMock = jest.spyOn(axios, 'post').mockImplementation()
   })
 
-  it('sets the time output', async () => {
+  afterEach(() => {
+    // Restore original @actions/github context
+    Object.defineProperty(github, 'context', {
+      value: originalContext
+    })
+  })
+
+  it('calls webhook', async () => {
     // Set the action's inputs as return values from core.getInput()
     getInputMock.mockImplementation(name => {
       switch (name) {
-        case 'milliseconds':
-          return '500'
+        case 'release-webhook-url':
+          return 'https://example.com/release'
+        case 'issue-webhook-url':
+          return 'https://example.com/issue'
+        case 'project-name':
+          return 'example'
+        case 'issue-tag':
+          return 'ISSUE'
         default:
           return ''
+      }
+    })
+
+    Object.defineProperty(github, 'context', {
+      value: {
+        eventName: 'release',
+        payload: {
+          release: {
+            body: 'This is a release with ISSUE-1 and ISSUE-2',
+            tag_name: '1.0.0'
+          }
+        }
       }
     })
 
@@ -48,31 +69,32 @@ describe('action', () => {
     expect(runMock).toHaveReturned()
 
     // Verify that all of the core library functions were called correctly
-    expect(debugMock).toHaveBeenNthCalledWith(1, 'Waiting 500 milliseconds ...')
-    expect(debugMock).toHaveBeenNthCalledWith(
+    expect(setFailedMock).not.toHaveBeenCalled()
+    expect(errorMock).not.toHaveBeenCalled()
+
+    // Verify that the axios.post() calls were made with the correct arguments
+    expect(axiosPostMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.com/release',
+      {
+        versionName: 'example-1.0.0',
+        versionDescription: 'This is a release with ISSUE-1 and ISSUE-2'
+      }
+    )
+    expect(axiosPostMock).toHaveBeenNthCalledWith(
       2,
-      expect.stringMatching(timeRegex)
+      'https://example.com/issue',
+      {
+        versionName: 'example-1.0.0',
+        issues: ['ISSUE-1', 'ISSUE-2']
+      }
     )
-    expect(debugMock).toHaveBeenNthCalledWith(
-      3,
-      expect.stringMatching(timeRegex)
-    )
-    expect(setOutputMock).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      expect.stringMatching(timeRegex)
-    )
-    expect(errorMock).not.toHaveBeenCalled()
   })
 
-  it('sets a failed status', async () => {
-    // Set the action's inputs as return values from core.getInput()
-    getInputMock.mockImplementation(name => {
-      switch (name) {
-        case 'milliseconds':
-          return 'this is not a number'
-        default:
-          return ''
+  it('sets failed if event is not release', async () => {
+    Object.defineProperty(github, 'context', {
+      value: {
+        eventName: 'push'
       }
     })
 
@@ -80,10 +102,12 @@ describe('action', () => {
     expect(runMock).toHaveReturned()
 
     // Verify that all of the core library functions were called correctly
-    expect(setFailedMock).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds not a number'
+    expect(setFailedMock).toHaveBeenCalledWith(
+      'This action can only be run on release events.'
     )
     expect(errorMock).not.toHaveBeenCalled()
+
+    // Verify that the axios.post() calls were not made
+    expect(axiosPostMock).not.toHaveBeenCalled()
   })
 })
