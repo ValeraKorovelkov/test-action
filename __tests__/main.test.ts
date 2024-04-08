@@ -42,7 +42,7 @@ describe('action', () => {
       switch (name) {
         case 'release-webhook-url':
           return 'https://example.com/release'
-        case 'issue-webhook-url':
+        case 'issues-webhook-url':
           return 'https://example.com/issue'
         case 'project-name':
           return 'example'
