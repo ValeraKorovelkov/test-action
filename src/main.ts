@@ -21,7 +21,7 @@ export async function run(): Promise<void> {
     const releaseBody: string = github.context.payload.release.body
     const releaseTag: string = github.context.payload.release.tag_name
     const releaseWebhookUrl: string = core.getInput('release-webhook-url')
-    const issueWebhookUrl: string = core.getInput('issue-webhook-url')
+    const issuesWebhookUrl: string = core.getInput('issues-webhook-url')
     const projectName: string = core.getInput('project-name')
     const issueTag: string = core.getInput('issue-tag')
 
@@ -38,10 +38,12 @@ export async function run(): Promise<void> {
     })
 
     console.log('Updating issues...')
-    await axios.post(issueWebhookUrl, { versionName, issues })
+    await axios.post(issuesWebhookUrl, { versionName, issues })
 
     console.log('Action complete.')
   } catch (error) {
+    if (core.isDebug()) console.log(error)
+
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
   }

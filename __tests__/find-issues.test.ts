@@ -16,15 +16,15 @@ describe('findIssues.ts', () => {
 
   it('find multiple issues', async () => {
     const body = `This is a multiline text
-    with a DASH-123 issue in it and a EX-456 issue`
+    with a DASH-123 issue in it and a DASH-456 issue`
     const issueTag = 'DASH'
     const issues = findIssues(body, issueTag)
-    expect(issues).toEqual(['DASH-123'])
+    expect(issues).toEqual(['DASH-123', 'DASH-456'])
   })
 
   it('find no issues', async () => {
     const body = `This is a multiline text
-    with no issues in it`
+    with no issues in it and a fake issue EX-123`
     const issueTag = 'DASH'
     const issues = findIssues(body, issueTag)
     expect(issues).toEqual([])
